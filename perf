@@ -1,0 +1,58 @@
+#!/bin/bash
+[[ -z "$2" ]] && echo "Usage: ./perf [url] [sample count]" && exit
+for i in $(seq $2); do
+  echo "curl -sko /dev/null -w \"%{json}\" $1"
+done | \
+parallel --bar | \
+jq -sr '
+  def min(v): v|min;
+  def avg(v): v|add/length;
+  def p95(v): v|sort[length*0.95|round-1];
+  def max(v): v|max;
+  def suc(v):
+    v|map(.dns=.time_namelookup
+      |.tcp=.time_connect-.time_namelookup
+      |.ssl=.time_appconnect-.time_connect
+      |.ttfb=.time_starttransfer-.time_appconnect
+      |.ttlb=.time_total-.time_starttransfer
+      |.total=.time_total
+    )
+    |{dns_min:min(map(.dns)),
+      tcp_min:min(map(.tcp)),
+      ssl_min:min(map(.ssl)),
+      ttfb_min:min(map(.ttfb)),
+      ttlb_min:min(map(.ttlb)),
+      total_min:min(map(.total)),
+      dns_avg:avg(map(.dns)),
+      tcp_avg:avg(map(.tcp)),
+      ssl_avg:avg(map(.ssl)),
+      ttfb_avg:avg(map(.ttfb)),
+      ttlb_avg:avg(map(.ttlb)),
+      total_avg:avg(map(.total)),
+      dns_p95:p95(map(.dns)),
+      tcp_p95:p95(map(.tcp)),
+      ssl_p95:p95(map(.ssl)),
+      ttfb_p95:p95(map(.ttfb)),
+      ttlb_p95:p95(map(.ttlb)),
+      total_p95:p95(map(.total)),
+      dns_max:max(map(.dns)),
+      tcp_max:max(map(.tcp)),
+      ssl_max:max(map(.ssl)),
+      ttfb_max:max(map(.ttfb)),
+      ttlb_max:max(map(.ttlb)),
+      total_max:max(map(.total))
+    }
+    |map_values(.*1000|round)
+    |"msec min avg p95 max",
+      "dns \(.dns_min) \(.dns_avg) \(.dns_p95) \(.dns_max)",
+      "tcp \(.tcp_min) \(.tcp_avg) \(.tcp_p95) \(.tcp_max)",
+      "ssl \(.ssl_min) \(.ssl_avg) \(.ssl_p95) \(.ssl_max)",
+      "ttfb \(.ttfb_min) \(.ttfb_avg) \(.ttfb_p95) \(.ttfb_max)",
+      "ttlb \(.ttlb_min) \(.ttlb_avg) \(.ttlb_p95) \(.ttlb_max)",
+      "total \(.total_min) \(.total_avg) \(.total_p95) \(.total_max)"
+  ;
+  (map(select(.exitcode!=0))|length) as $err
+  |map(select(.exitcode==0))
+  |"error: \($err)",if length==0 then empty else suc(.) end
+' | \
+column -t
