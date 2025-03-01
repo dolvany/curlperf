@@ -1,5 +1,5 @@
 # curlperf
-A shell tool for ad hoc http performance analysis. Measures dns, tcp, ssl, first byte, last byte and total. Depends on bash, curl, jq, parallel, column and seq. All metrics are deltas, except for total. Error samples are excluded from measurment. Measurements are in milliseconds. Requires a version of curl that supports json write out.
+A shell tool for ad hoc http performance analysis. Measures dns, tcp, ssl, first byte, last byte and total. Depends on bash, curl, jq, parallel, column and seq. All metrics are deltas, except for total. Error samples are excluded from measurment. Measurements are in milliseconds. Requires a version of curl that supports json write out. Can be adapted for continuous monitoring with cron and a tsdb.
 ```
 % ./perf
 Usage: ./perf [url] [sample count]
